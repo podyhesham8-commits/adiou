@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>استوديو الأغاني والموسيقى الحقيقي</title>
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              900: '#14532d',
+            }
+          },
+          fontFamily: {
+            cairo: ['Cairo', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Cairo', sans-serif; }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    
+    .drag-active {
+      border-color: #22c55e !important;
+      background-color: rgba(34, 197, 94, 0.1) !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white transition-colors duration-300 relative overflow-x-hidden">
+
+  <!-- Drag Overlay Indicator -->
+  <div id="dragDropOverlay" class="fixed inset-0 bg-brand-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center border-4 border-dashed border-brand-400 m-4 rounded-3xl opacity-0 pointer-events-none transition-all duration-300">
+    <i class="fa-solid fa-cloud-arrow-up text-6xl text-brand-400 mb-4 animate-bounce"></i>
+    <h2 class="text-2xl font-bold text-white">اترك الملفات هنا لإضافتها فوراً!</h2>
+    <p class="text-slate-300 text-sm mt-2">يدعم كافة صيغ الصوت والفيديو (MP3, WAV, FLAC, MP4, WEBM...)</p>
+  </div>
+
+  <!-- Header -->
+  <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 py-3 shadow-xl">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-slate-950 font-bold text-xl shadow-lg shadow-brand-500/20">
+          <i class="fa-solid fa-compact-disc animate-spin" style="animation-duration: 8s;"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight flex items-center gap-2">
+            مشغل الموسيقى الحقيقي
+            <span class="text-[10px] bg-brand-500/20 text-brand-400 border border-brand-500/30 px-2 py-0.5 rounded-full font-mono">Real Player</span>
+          </h1>
+          <p class="text-xs text-slate-400">شغّل ملفاتك الصوتية والمقاطع بحرية كاملة</p>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="relative flex-1 max-w-md hidden sm:block">
+        <input type="text" id="searchInput" oninput="filterMedia()" placeholder="بحث في ملفاتك..." class="w-full bg-slate-950/80 border border-slate-700/70 rounded-full py-2 pr-10 pl-4 text-sm focus:outline-none focus:border-brand-500 transition">
+        <i class="fa-solid fa-search absolute right-3.5 top-2.5 text-slate-500 text-sm"></i>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2">
+        <input type="file" id="bulkFileInput" multiple accept="audio/*,video/*" class="hidden" onchange="handleFileInput(event)">
+        <button onclick="document.getElementById('bulkFileInput').click()" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg shadow-brand-600/20 transition transform active:scale-95">
+          <i class="fa-solid fa-folder-plus text-base"></i>
+          <span class="hidden md:inline">فتح ملفات من الجهاز</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Search Bar for Mobile -->
+  <div class="px-4 pt-3 sm:hidden">
+    <div class="relative w-full">
+      <input type="text" id="mobileSearchInput" oninput="filterMedia()" placeholder="بحث في ملفاتك..." class="w-full bg-slate-900 border border-slate-800 rounded-full py-2 pr-10 pl-4 text-sm focus:outline-none focus:border-brand-500">
+      <i class="fa-solid fa-search absolute right-3.5 top-2.5 text-slate-500 text-sm"></i>
+    </div>
+  </div>
+
+  <!-- Main Grid Area -->
+  <main class="max-w-7xl w-full mx-auto p-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+    <!-- Screen & Controls Column (Left/Top) -->
+    <section class="lg:col-span-7 xl:col-span-8 flex flex-col gap-4 sticky lg:top-20">
+
+      <!-- Media Screen (Video or Visualizer Canvas) -->
+      <div class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl group flex items-center justify-center">
+        
+        <!-- Video Element -->
+        <video id="mainVideo" class="w-full h-full object-contain hidden" crossorigin="anonymous"></video>
+
+        <!-- Audio Canvas & Visualizer Container -->
+        <div id="audioPoster" class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/40 p-6 text-center relative overflow-hidden">
+          
+          <!-- Live Web Audio Canvas Visualizer -->
+          <canvas id="visualizerCanvas" class="absolute inset-0 w-full h-full opacity-60 pointer-events-none"></canvas>
+
+          <div id="posterDisk" class="w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-slate-900 border-4 border-brand-500/40 flex items-center justify-center text-brand-400 text-4xl sm:text-5xl shadow-2xl mb-4 relative z-10 transition duration-500">
+            <i class="fa-solid fa-music"></i>
+          </div>
+
+          <h2 id="nowPlayingTitle" class="text-lg sm:text-xl font-bold text-white relative z-10 max-w-md truncate px-2">اختر أو ارفع ملفاً للتشغيل</h2>
+          <p id="nowPlayingArtist" class="text-xs sm:text-sm text-slate-400 relative z-10 mt-1">تطبيق الموسيقى ومقاطع الفيديو الحقيقي</p>
+        </div>
+
+        <!-- Format Badge -->
+        <div id="typeBadge" class="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-xs text-brand-400 font-mono border border-brand-500/30 shadow-md">
+          جاهز
+        </div>
+
+        <!-- Speed Selector Badge -->
+        <div class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded-lg text-xs text-slate-300 border border-slate-700/60 flex items-center gap-1">
+          <i class="fa-solid fa-gauge text-slate-400 text-[10px]"></i>
+          <select id="speedSelect" onchange="changeSpeed(this.value)" class="bg-transparent text-xs font-mono focus:outline-none cursor-pointer">
+            <option value="0.5" class="bg-slate-900 text-white">0.5x</option>
+            <option value="1" selected class="bg-slate-900 text-white">1.0x (عادي)</option>
+            <option value="1.25" class="bg-slate-900 text-white">1.25x</option>
+            <option value="1.5" class="bg-slate-900 text-white">1.5x</option>
+            <option value="2" class="bg-slate-900 text-white">2.0x</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Player Controls Box -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col gap-4">
+
+        <!-- Progress Scrubber Bar -->
+        <div>
+          <input type="range" id="progressBar" min="0" max="100" value="0" step="0.05" oninput="seekMedia(this.value)" class="w-full accent-brand-500 bg-slate-800 h-2 rounded-lg cursor-pointer transition">
+          <div class="flex justify-between text-xs text-slate-400 font-mono mt-1.5">
+            <span id="currentTime">00:00</span>
+            <span id="durationTime">00:00</span>
+          </div>
+        </div>
+
+        <!-- Control Buttons Bar -->
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          
+          <!-- Secondary Toggles -->
+          <div class="flex items-center gap-1 sm:gap-2">
+            <button id="favoriteBtn" onclick="toggleFavoriteCurrent()" class="text-slate-400 hover:text-red-500 text-lg transition p-2.5 rounded-xl hover:bg-slate-800" title="إضافة للمفضلة">
+              <i class="fa-regular fa-heart"></i>
+            </button>
+            <button id="shuffleBtn" onclick="toggleShuffle()" class="text-slate-400 hover:text-brand-400 text-lg transition p-2.5 rounded-xl hover:bg-slate-800" title="تشغيل عشوائي">
+              <i class="fa-solid fa-shuffle"></i>
+            </button>
+            <button id="repeatBtn" onclick="toggleRepeat()" class="text-slate-400 hover:text-brand-400 text-lg transition p-2.5 rounded-xl hover:bg-slate-800" title="تكرار تلقائي">
+              <i class="fa-solid fa-repeat"></i>
+            </button>
+          </div>
+
+          <!-- Main Playback Buttons -->
+          <div class="flex items-center gap-2 sm:gap-4">
+            <button onclick="rewind10()" class="text-slate-400 hover:text-white text-sm p-2 rounded-lg hover:bg-slate-800 transition" title="تراجع 10 ثوانٍ">
+              <i class="fa-solid fa-rotate-left"></i> <span class="text-xs font-mono">10s</span>
+            </button>
+
+            <button onclick="playPrevious()" class="text-slate-200 hover:text-brand-400 text-xl p-2.5 rounded-xl hover:bg-slate-800 transition" title="السابق">
+              <i class="fa-solid fa-backward-step"></i>
+            </button>
+
+            <button id="playPauseBtn" onclick="togglePlayPause()" class="w-13 h-13 sm:w-14 sm:h-14 bg-brand-500 hover:bg-brand-400 text-slate-950 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-bold shadow-lg shadow-brand-500/30 transition transform active:scale-95">
+              <i class="fa-solid fa-play"></i>
+            </button>
+
+            <button onclick="playNext()" class="text-slate-200 hover:text-brand-400 text-xl p-2.5 rounded-xl hover:bg-slate-800 transition" title="التالي">
+              <i class="fa-solid fa-forward-step"></i>
+            </button>
+
+            <button onclick="forward10()" class="text-slate-400 hover:text-white text-sm p-2 rounded-lg hover:bg-slate-800 transition" title="تقديم 10 ثوانٍ">
+              <span class="text-xs font-mono">10s</span> <i class="fa-solid fa-rotate-right"></i>
+            </button>
+          </div>
+
+          <!-- Volume Control -->
+          <div class="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-xl">
+            <button onclick="toggleMute()" id="muteBtn" class="text-slate-400 hover:text-slate-200 text-sm">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+            <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1" oninput="changeVolume(this.value)" class="w-16 sm:w-20 accent-brand-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Library / Playlist Panel (Right/Bottom) -->
+    <section class="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+
+      <!-- Navigation Filter Tabs -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-1.5 flex gap-1 text-xs sm:text-sm font-semibold">
+        <button id="tabAll" onclick="switchTab('all')" class="flex-1 py-2 text-center rounded-xl bg-brand-600 text-white shadow transition">
+          الكل (<span id="countAll">0</span>)
+        </button>
+        <button id="tabAudio" onclick="switchTab('audio')" class="flex-1 py-2 text-center rounded-xl text-slate-400 hover:text-white transition">
+          صوت (<span id="countAudio">0</span>)
+        </button>
+        <button id="tabVideo" onclick="switchTab('video')" class="flex-1 py-2 text-center rounded-xl text-slate-400 hover:text-white transition">
+          فيديو (<span id="countVideo">0</span>)
+        </button>
+        <button id="tabFav" onclick="switchTab('fav')" class="flex-1 py-2 text-center rounded-xl text-slate-400 hover:text-white transition">
+          المفضلة (<span id="countFav">0</span>)
+        </button>
+      </div>
+
+      <!-- Playlist Container -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-xl max-h-[580px] overflow-y-auto flex flex-col gap-2 min-h-[300px]" id="playlistContainer">
+        <!-- Playlist items injected dynamically -->
+      </div>
+
+      <!-- Quick Action Buttons below playlist -->
+      <div class="flex items-center justify-between gap-2 px-1">
+        <button onclick="document.getElementById('bulkFileInput').click()" class="text-xs text-brand-400 hover:text-brand-300 font-semibold flex items-center gap-1">
+          <i class="fa-solid fa-plus-circle"></i> إضافة المزيد من الملفات
+        </button>
+        
+        <button onclick="clearAllLibrary()" id="clearAllBtn" class="text-xs text-slate-500 hover:text-red-400 transition hidden flex items-center gap-1">
+          <i class="fa-solid fa-trash"></i> مسح المكتبة
+        </button>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Audio element -->
+  <audio id="mainAudio" class="hidden" crossorigin="anonymous"></audio>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border border-brand-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl text-xs flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <i class="fa-solid fa-circle-check text-brand-400 text-base"></i>
+    <span id="toastMsg">تمت العملية بنجاح</span>
+  </div>
+
+  <script>
+    // --- State Variables ---
+    let tracks = []; // Stores track metadata & Blob/File references
+    let favorites = new Set();
+    let currentTrackIndex = -1;
+    let isPlaying = false;
+    let isRepeat = false;
+    let isShuffle = false;
+    let activeTab = 'all'; // 'all', 'audio', 'video', 'fav'
+    let db = null;
+
+    // Web Audio Visualizer variables
+    let audioCtx = null;
+    let analyserNode = null;
+    let audioSourceNode = null;
+    let visualizerAnimationId = null;
+
+    // --- DOM Elements ---
+    const audioEl = document.getElementById('mainAudio');
+    const videoEl = document.getElementById('mainVideo');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const progressBar = document.getElementById('progressBar');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationTimeEl = document.getElementById('durationTime');
+    const repeatBtn = document.getElementById('repeatBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const favoriteBtn = document.getElementById('favoriteBtn');
+    const nowPlayingTitle = document.getElementById('nowPlayingTitle');
+    const nowPlayingArtist = document.getElementById('nowPlayingArtist');
+    const audioPoster = document.getElementById('audioPoster');
+    const posterDisk = document.getElementById('posterDisk');
+    const typeBadge = document.getElementById('typeBadge');
+    const playlistContainer = document.getElementById('playlistContainer');
+    const canvas = document.getElementById('visualizerCanvas');
+    const canvasCtx = canvas.getContext('2d');
+
+    // --- IndexedDB Database Initialization ---
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('RealPlayerMediaDB_v1', 1);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains('mediaFiles')) {
+            database.createObjectStore('mediaFiles', { keyPath: 'id' });
+          }
+          if (!database.objectStoreNames.contains('favorites')) {
+            database.createObjectStore('favorites', { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    async function loadStoredData() {
+      try {
+        await initDB();
+
+        // Load Favorites
+        const favTx = db.transaction('favorites', 'readonly').objectStore('favorites');
+        const favReq = favTx.getAll();
+        favReq.onsuccess = () => {
+          const list = favReq.result || [];
+          favorites = new Set(list.map(f => f.id));
+        };
+
+        // Load Stored File Blobs
+        const mediaTx = db.transaction('mediaFiles', 'readonly').objectStore('mediaFiles');
+        const mediaReq = mediaTx.getAll();
+        mediaReq.onsuccess = () => {
+          const savedTracks = mediaReq.result || [];
+          tracks = savedTracks.map(item => {
+            // Re-create object URL from Blob
+            const blobUrl = URL.createObjectURL(item.blob);
+            return {
+              ...item,
+              url: blobUrl
+            };
+          });
+
+          updateTrackCounts();
+          renderPlaylist();
+
+          if (tracks.length > 0) {
+            loadTrack(0, false);
+          }
+        };
+      } catch (err) {
+        console.error('Error loading DB:', err);
+      }
+    }
+
+    // --- Audio Spectrum Visualizer (Web Audio API) ---
+    function initAudioContext() {
+      if (audioCtx) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        analyserNode = audioCtx.createAnalyser();
+        analyserNode.fftSize = 64;
+
+        audioSourceNode = audioCtx.createMediaElementSource(audioEl);
+        audioSourceNode.connect(analyserNode);
+        analyserNode.connect(audioCtx.destination);
+      } catch (e) {
+        console.warn('Audio Context initialization skipped or failed:', e);
+      }
+    }
+
+    function renderVisualizer() {
+      if (!analyserNode) return;
+
+      const bufferLength = analyserNode.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function draw() {
+        visualizerAnimationId = requestAnimationFrame(draw);
+
+        // Adjust Canvas dimensions dynamically
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+
+        analyserNode.getByteFrequencyData(dataArray);
+
+        canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const barWidth = (canvas.width / bufferLength) * 2;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * (canvas.height * 0.7);
+
+          // Create vibrant gradient
+          const gradient = canvasCtx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+          gradient.addColorStop(0, '#16a34a');
+          gradient.addColorStop(0.5, '#22c55e');
+          gradient.addColorStop(1, '#4ade80');
+
+          canvasCtx.fillStyle = gradient;
+          canvasCtx.fillRect(x, canvas.height - barHeight, barWidth - 3, barHeight);
+
+          x += barWidth;
+        }
+      }
+
+      if (visualizerAnimationId) cancelAnimationFrame(visualizerAnimationId);
+      draw();
+    }
+
+    // --- File Ingestion (Picker & Drag/Drop) ---
+    function handleFileInput(e) {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        processAndAddFiles(Array.from(files));
+      }
+      e.target.value = ''; // Reset input
+    }
+
+    async function processAndAddFiles(fileList) {
+      const newTracks = [];
+      
+      for (const file of fileList) {
+        // Detect media type
+        const isVideo = file.type.startsWith('video') || /\.(mp4|webm|mkv|mov|avi)$/i.test(file.name);
+        const formatExt = file.name.split('.').pop().toUpperCase();
+        
+        const trackObj = {
+          id: 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          title: file.name.replace(/\.[^/.]+$/, ""), // file name without extension
+          artist: `${formatExt} • ${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          type: isVideo ? 'video' : 'audio',
+          format: formatExt,
+          blob: file,
+          url: URL.createObjectURL(file)
+        };
+
+        newTracks.push(trackObj);
+
+        // Save to IndexedDB
+        if (db) {
+          const tx = db.transaction('mediaFiles', 'readwrite');
+          tx.objectStore('mediaFiles').put({
+            id: trackObj.id,
+            title: trackObj.title,
+            artist: trackObj.artist,
+            type: trackObj.type,
+            format: trackObj.format,
+            blob: file
+          });
+        }
+      }
+
+      const startIndex = tracks.length;
+      tracks.push(...newTracks);
+
+      updateTrackCounts();
+      renderPlaylist();
+      showToast(`تمت إضافة ${newTracks.length} ملف بنجاح!`);
+
+      // Play the first newly added track if nothing was playing
+      if (currentTrackIndex === -1 || !isPlaying) {
+        loadTrack(startIndex, true);
+      }
+    }
+
+    // --- Drag and Drop Setup ---
+    const dragOverlay = document.getElementById('dragDropOverlay');
+
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dragOverlay.classList.remove('opacity-0', 'pointer-events-none');
+    });
+
+    dragOverlay.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragOverlay.classList.add('opacity-0', 'pointer-events-none');
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragOverlay.classList.add('opacity-0', 'pointer-events-none');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processAndAddFiles(Array.from(e.dataTransfer.files));
+      }
+    });
+
+    // --- Core Media Player Controls ---
+    function getActiveMedia() {
+      const currentTrack = tracks[currentTrackIndex];
+      return currentTrack && currentTrack.type === 'video' ? videoEl : audioEl;
+    }
+
+    function loadTrack(index, autoplay = true) {
+      if (index < 0 || index >= tracks.length) return;
+
+      currentTrackIndex = index;
+      const track = tracks[currentTrackIndex];
+
+      // Pause both audio and video
+      audioEl.pause();
+      videoEl.pause();
+
+      nowPlayingTitle.textContent = track.title;
+      nowPlayingArtist.textContent = track.artist;
+      typeBadge.textContent = track.format || (track.type === 'video' ? 'VIDEO' : 'AUDIO');
+
+      if (track.type === 'video') {
+        audioPoster.classList.add('hidden');
+        videoEl.classList.remove('hidden');
+        videoEl.src = track.url;
+        videoEl.load();
+      } else {
+        videoEl.classList.add('hidden');
+        audioPoster.classList.remove('hidden');
+        audioEl.src = track.url;
+        audioEl.load();
+
+        initAudioContext();
+        renderVisualizer();
+      }
+
+      // Apply current playback speed
+      const speed = parseFloat(document.getElementById('speedSelect').value || 1);
+      audioEl.playbackRate = speed;
+      videoEl.playbackRate = speed;
+
+      updateFavoriteUI();
+      renderPlaylist();
+
+      if (autoplay) {
+        playMedia();
+      } else {
+        updatePlayPauseIcon(false);
+      }
+    }
+
+    function playMedia() {
+      if (currentTrackIndex === -1 && tracks.length > 0) {
+        loadTrack(0, true);
+        return;
+      }
+
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const media = getActiveMedia();
+      media.play().then(() => {
+        isPlaying = true;
+        updatePlayPauseIcon(true);
+        posterDisk.classList.add('animate-spin');
+      }).catch(err => {
+        console.warn('Playback error:', err);
+        isPlaying = false;
+        updatePlayPauseIcon(false);
+        posterDisk.classList.remove('animate-spin');
+      });
+    }
+
+    function pauseMedia() {
+      audioEl.pause();
+      videoEl.pause();
+      isPlaying = false;
+      updatePlayPauseIcon(false);
+      posterDisk.classList.remove('animate-spin');
+    }
+
+    function togglePlayPause() {
+      if (isPlaying) {
+        pauseMedia();
+      } else {
+        playMedia();
+      }
+    }
+
+    function updatePlayPauseIcon(playing) {
+      playPauseBtn.innerHTML = playing ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
+    }
+
+    function playNext() {
+      if (tracks.length === 0) return;
+
+      let nextIndex;
+      if (isShuffle) {
+        nextIndex = Math.floor(Math.random() * tracks.length);
+      } else {
+        nextIndex = currentTrackIndex + 1;
+        if (nextIndex >= tracks.length) nextIndex = 0;
+      }
+      loadTrack(nextIndex, true);
+    }
+
+    function playPrevious() {
+      if (tracks.length === 0) return;
+
+      let prevIndex = currentTrackIndex - 1;
+      if (prevIndex < 0) prevIndex = tracks.length - 1;
+      loadTrack(prevIndex, true);
+    }
+
+    function rewind10() {
+      const media = getActiveMedia();
+      media.currentTime = Math.max(0, media.currentTime - 10);
+    }
+
+    function forward10() {
+      const media = getActiveMedia();
+      media.currentTime = Math.min(media.duration || 0, media.currentTime + 10);
+    }
+
+    function seekMedia(val) {
+      const media = getActiveMedia();
+      if (media.duration) {
+        media.currentTime = (val / 100) * media.duration;
+      }
+    }
+
+    function changeSpeed(speedVal) {
+      const rate = parseFloat(speedVal);
+      audioEl.playbackRate = rate;
+      videoEl.playbackRate = rate;
+      showToast(`سرعة التشغيل: ${speedVal}x`);
+    }
+
+    function toggleRepeat() {
+      isRepeat = !isRepeat;
+      audioEl.loop = isRepeat;
+      videoEl.loop = isRepeat;
+
+      if (isRepeat) {
+        repeatBtn.classList.remove('text-slate-400');
+        repeatBtn.classList.add('text-brand-400', 'bg-brand-500/10');
+        showToast('تم تفعيل التكرار التلقائي');
+      } else {
+        repeatBtn.classList.remove('text-brand-400', 'bg-brand-500/10');
+        repeatBtn.classList.add('text-slate-400');
+        showToast('تم إلغاء التكرار');
+      }
+    }
+
+    function toggleShuffle() {
+      isShuffle = !isShuffle;
+      if (isShuffle) {
+        shuffleBtn.classList.remove('text-slate-400');
+        shuffleBtn.classList.add('text-brand-400', 'bg-brand-500/10');
+        showToast('تم تفعيل التشغيل العشوائي');
+      } else {
+        shuffleBtn.classList.remove('text-brand-400', 'bg-brand-500/10');
+        shuffleBtn.classList.add('text-slate-400');
+        showToast('تم إلغاء التشغيل العشوائي');
+      }
+    }
+
+    function changeVolume(val) {
+      audioEl.volume = val;
+      videoEl.volume = val;
+      const muteBtn = document.getElementById('muteBtn');
+      if (val == 0) {
+        muteBtn.innerHTML = '<i class="fa-solid fa-volume-xmark text-red-400"></i>';
+      } else {
+        muteBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+      }
+    }
+
+    function toggleMute() {
+      const media = getActiveMedia();
+      media.muted = !media.muted;
+      const muteBtn = document.getElementById('muteBtn');
+      if (media.muted) {
+        muteBtn.innerHTML = '<i class="fa-solid fa-volume-xmark text-red-400"></i>';
+      } else {
+        muteBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+      }
+    }
+
+    // --- Event Listeners for Time Updates and Track Endings ---
+    function attachMediaListeners(media) {
+      media.ontimeupdate = () => {
+        if (!isNaN(media.duration) && media.duration > 0) {
+          const progress = (media.currentTime / media.duration) * 100;
+          progressBar.value = progress;
+          currentTimeEl.textContent = formatTime(media.currentTime);
+          durationTimeEl.textContent = formatTime(media.duration);
+        }
+      };
+
+      media.onended = () => {
+        if (!isRepeat) {
+          playNext();
+        }
+      };
+    }
+
+    attachMediaListeners(audioEl);
+    attachMediaListeners(videoEl);
+
+    function formatTime(seconds) {
+      if (isNaN(seconds)) return '00:00';
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    // --- Playlist Rendering & Filtering ---
+    function renderPlaylist() {
+      const query = (document.getElementById('searchInput').value || document.getElementById('mobileSearchInput').value || '').toLowerCase().trim();
+      
+      playlistContainer.innerHTML = '';
+
+      const filtered = tracks.filter((track) => {
+        const matchesSearch = track.title.toLowerCase().includes(query) || track.artist.toLowerCase().includes(query);
+        let matchesTab = true;
+
+        if (activeTab === 'audio') matchesTab = track.type === 'audio';
+        else if (activeTab === 'video') matchesTab = track.type === 'video';
+        else if (activeTab === 'fav') matchesTab = favorites.has(track.id);
+
+        return matchesSearch && matchesTab;
+      });
+
+      // Show/Hide Clear Button
+      document.getElementById('clearAllBtn').classList.toggle('hidden', tracks.length === 0);
+
+      if (filtered.length === 0) {
+        playlistContainer.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-12 text-center text-slate-500 my-auto">
+            <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/50 flex items-center justify-center text-slate-400 text-2xl mb-3">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <p class="font-bold text-slate-300 text-sm">لا توجد ملفات ${activeTab === 'fav' ? 'في المفضلة' : 'في القائمة'}</p>
+            <p class="text-xs text-slate-500 mt-1 max-w-xs">اسحب وأسقط أغنيتك أو مقطع الفيديو هنا، أو انقر الزر لفتح الملفات من جهازك</p>
+            <button onclick="document.getElementById('bulkFileInput').click()" class="mt-4 bg-brand-600/20 hover:bg-brand-600/30 text-brand-400 border border-brand-500/30 px-4 py-2 rounded-xl text-xs font-bold transition">
+              اختيار ملفات الآن
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach((track) => {
+        const globalIndex = tracks.findIndex(t => t.id === track.id);
+        const isActive = globalIndex === currentTrackIndex;
+        const isFav = favorites.has(track.id);
+
+        const card = document.createElement('div');
+        card.className = `flex items-center justify-between p-3 rounded-xl cursor-pointer transition border ${
+          isActive 
+            ? 'bg-brand-950/60 border-brand-500/60 text-white shadow-md' 
+            : 'bg-slate-950/40 hover:bg-slate-800/50 border-slate-800 text-slate-300'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3 overflow-hidden flex-1" onclick="loadTrack(${globalIndex}, true)">
+            <div class="w-10 h-10 rounded-xl ${isActive ? 'bg-brand-500 text-slate-950' : 'bg-slate-800 text-slate-400'} flex items-center justify-center shrink-0 text-sm font-bold shadow">
+              ${isActive && isPlaying 
+                ? '<i class="fa-solid fa-waveform animate-pulse text-slate-950"></i>' 
+                : `<i class="fa-solid ${track.type === 'video' ? 'fa-film' : 'fa-music'}"></i>`
+              }
+            </div>
+            <div class="truncate">
+              <h4 class="text-sm font-bold truncate ${isActive ? 'text-brand-400' : 'text-slate-100'}">${track.title}</h4>
+              <p class="text-[11px] text-slate-400 truncate mt-0.5">${track.artist}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button onclick="event.stopPropagation(); toggleFavoriteById('${track.id}')" class="p-2 text-sm rounded-lg hover:bg-slate-800 ${isFav ? 'text-red-500' : 'text-slate-500 hover:text-slate-300'} transition">
+              <i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>
+            </button>
+            <button onclick="event.stopPropagation(); deleteTrack('${track.id}')" class="p-2 text-sm text-slate-500 hover:text-red-400 rounded-lg hover:bg-slate-800 transition" title="حذف الملف">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+
+        playlistContainer.appendChild(card);
+      });
+    }
+
+    function filterMedia() {
+      renderPlaylist();
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      const tabs = ['tabAll', 'tabAudio', 'tabVideo', 'tabFav'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(t);
+        if (t === 'tab' + tab.charAt(0).toUpperCase() + tab.slice(1)) {
+          btn.className = 'flex-1 py-2 text-center rounded-xl bg-brand-600 text-white shadow transition';
+        } else {
+          btn.className = 'flex-1 py-2 text-center rounded-xl text-slate-400 hover:text-white transition';
+        }
+      });
+
+      renderPlaylist();
+    }
+
+    function updateTrackCounts() {
+      document.getElementById('countAll').textContent = tracks.length;
+      document.getElementById('countAudio').textContent = tracks.filter(t => t.type === 'audio').length;
+      document.getElementById('countVideo').textContent = tracks.filter(t => t.type === 'video').length;
+      document.getElementById('countFav').textContent = favorites.size;
+    }
+
+    // --- Favorite Management ---
+    function toggleFavoriteCurrent() {
+      if (currentTrackIndex === -1) return;
+      const track = tracks[currentTrackIndex];
+      toggleFavoriteById(track.id);
+    }
+
+    function toggleFavoriteById(id) {
+      if (favorites.has(id)) {
+        favorites.delete(id);
+        if (db) db.transaction('favorites', 'readwrite').objectStore('favorites').delete(id);
+        showToast('تمت الإزالة من المفضلة');
+      } else {
+        favorites.add(id);
+        if (db) db.transaction('favorites', 'readwrite').objectStore('favorites').put({ id });
+        showToast('تمت الإضافة إلى المفضلة');
+      }
+
+      updateFavoriteUI();
+      updateTrackCounts();
+      renderPlaylist();
+    }
+
+    function updateFavoriteUI() {
+      if (currentTrackIndex === -1) return;
+      const track = tracks[currentTrackIndex];
+      if (favorites.has(track.id)) {
+        favoriteBtn.classList.remove('text-slate-400');
+        favoriteBtn.classList.add('text-red-500');
+        favoriteBtn.innerHTML = '<i class="fa-solid fa-heart"></i>';
+      } else {
+        favoriteBtn.classList.remove('text-red-500');
+        favoriteBtn.classList.add('text-slate-400');
+        favoriteBtn.innerHTML = '<i class="fa-regular fa-heart"></i>';
+      }
+    }
+
+    // --- Deleting Media Files ---
+    async function deleteTrack(id) {
+      const trackIndex = tracks.findIndex(t => t.id === id);
+      if (trackIndex === -1) return;
+
+      // Revoke Object URL
+      URL.revokeObjectURL(tracks[trackIndex].url);
+
+      // Remove from IndexedDB
+      if (db) {
+        db.transaction('mediaFiles', 'readwrite').objectStore('mediaFiles').delete(id);
+        if (favorites.has(id)) {
+          db.transaction('favorites', 'readwrite').objectStore('favorites').delete(id);
+          favorites.delete(id);
+        }
+      }
+
+      tracks.splice(trackIndex, 1);
+
+      if (currentTrackIndex === trackIndex) {
+        if (tracks.length > 0) {
+          loadTrack(Math.min(trackIndex, tracks.length - 1), isPlaying);
+        } else {
+          pauseMedia();
+          currentTrackIndex = -1;
+          nowPlayingTitle.textContent = 'اختر أو ارفع ملفاً للتشغيل';
+          nowPlayingArtist.textContent = 'تطبيق الموسيقى ومقاطع الفيديو الحقيقي';
+          typeBadge.textContent = 'جاهز';
+          audioPoster.classList.remove('hidden');
+          videoEl.classList.add('hidden');
+        }
+      } else if (currentTrackIndex > trackIndex) {
+        currentTrackIndex--;
+      }
+
+      updateTrackCounts();
+      renderPlaylist();
+      showToast('تم حذف الملف');
+    }
+
+    async function clearAllLibrary() {
+      if (tracks.length === 0) return;
+      
+      pauseMedia();
+      tracks.forEach(t => URL.revokeObjectURL(t.url));
+      tracks = [];
+      favorites.clear();
+      currentTrackIndex = -1;
+
+      if (db) {
+        db.transaction('mediaFiles', 'readwrite').objectStore('mediaFiles').clear();
+        db.transaction('favorites', 'readwrite').objectStore('favorites').clear();
+      }
+
+      nowPlayingTitle.textContent = 'اختر أو ارفع ملفاً للتشغيل';
+      nowPlayingArtist.textContent = 'تطبيق الموسيقى ومقاطع الفيديو الحقيقي';
+      typeBadge.textContent = 'جاهز';
+      audioPoster.classList.remove('hidden');
+      videoEl.classList.add('hidden');
+
+      updateTrackCounts();
+      renderPlaylist();
+      showToast('تم إخلاء المكتبة بالكامل');
+    }
+
+    // --- UI Helper Functions ---
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3000);
+    }
+
+    // --- App Init ---
+    window.onload = function() {
+      loadStoredData();
+    };
+  </script>
+</body>
+</html>
